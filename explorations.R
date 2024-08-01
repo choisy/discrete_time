@@ -1,42 +1,48 @@
+## Packages ###########################################################################
+
+library(deSolve)
+library(purrr)
+library(parallel)
+library(magrittr)
+
+## Functions ##########################################################################
+
+dbinom2 <- function(...)  dbinom(..., log = TRUE)
+
+remove_first <- function(x) tail(x, -1)
+
+last <- function(x) tail(x, 1)
+
+
+## 1. continuous-time model ###########################################################
+
 # the function that simulates an SIR model:
-sir <- function(beta, gamma, S0 = 999, I0 = 1, R0 = 0, times) {
-  require(deSolve) # for the "ode" function
+sir_continuous <- function(beta, gamma, S0, I0, R0, times) {
   
   # the differential equations:
   sir_equations <- function(time, variables, parameters) {
     with(as.list(c(variables, parameters)), {
-      dS <- -beta * I * S
-      dI <-  beta * I * S - gamma * I
-      dR <-  gamma * I
+      new_cases <- beta * I * S
+      recovered <- gamma * I
+      dS <- - new_cases
+      dI <-   new_cases - recovered
+      dR <-   recovered
       return(list(c(dS, dI, dR)))
     })
   }
   
-  # the parameters values:
-  parameters_values <- c(beta  = beta, gamma = gamma)
-  
-  # the initial values of variables:
-  initial_values <- c(S = S0, I = I0, R = R0)
-  
-  # solving
-  out <- ode(initial_values, times, sir_equations, parameters_values)
-  
-  # returning the output:
-  as.data.frame(out)
+  tibble::as_tibble(
+    as.data.frame(
+      ode(c(S = S0, I = I0, R = R0), times, sir_equations,
+          c(beta  = beta, gamma = gamma))))
 }
 
-# running the model:
-out <- sir(beta = 0.004, gamma = 0.5, S0 = 999, I0 = 1, R0 = 0, times = seq(0, 10, le = 500))
 
-# plotting the output:
-with(out, plot(time, I, type = "l", col = 2, lwd = 3))
+## 2. discrete-time model #############################################################
 
-#######################################################################################
-
-sir_discrete_time <- function(beta = .004, gamma = .5, S0 = 999, I0 = 1, R0 = 0,
-                              duration = 10, step = 1) {
-  last <- function(x) tail(x, 1)
-  times <- seq(step, duration, step)
+sir_discrete <- function(beta, gamma, S0, I0, R0, times) {
+  
+  step <- mean(diff(times))
   
   S <- S0
   I <- I0
@@ -44,38 +50,93 @@ sir_discrete_time <- function(beta = .004, gamma = .5, S0 = 999, I0 = 1, R0 = 0,
   p_inf <- NA
   p_rec <- NA
   
-  for (i in times) {
+  for (i in remove_first(times)) {
     last_S <- last(S)
     last_I <- last(I)
     last_R <- last(R)
-    pi <- 1 - exp(- beta * last_I * step)
-    pr <- 1 - exp(- gamma * step)
-    new_inf <- pi * last_S
-    new_rec <- pr * last_I
-    S <- c(S, last_S - new_inf)
-    I <- c(I, last_I + new_inf - new_rec)
-    R <- c(R, last_R + new_rec)
-    p_inf <- c(p_inf, pi)
-    p_rec <- c(p_rec, pr)
+#    proba_infection <- 1 - exp(- beta * last_I * step)
+#    proba_recovery <- 1 - exp(- gamma * step)
+    
+#    new_cases <- beta * last_I * last_S * step
+#    recovered <- gamma * last_I * step
+    
+    new_cases <- (1 - exp(- beta * last_I * step)) * last_S
+    recovered <- (1 - exp(- gamma * step)) * last_I
+    S <- c(S, last_S - new_cases)
+    I <- c(I, last_I + new_cases - recovered)
+    R <- c(R, last_R + recovered)
   }
   
-  tibble::tibble(time = c(0, times), S = S, I = I, R = R, p_inf = p_inf, p_rec = p_rec)
+  tibble::tibble(time = times, S = S, I = I, R = R)
 }
 
-dbinom2 <- function(...)  dbinom(..., log = TRUE)
+# sir_discrete(beta = .004, gamma = .5, S0 = 999, I0 = 1, R0 = 0, times = seq(0, 10, .1))
 
-mLL <- function(par) {
-  dis <- sir_discrete_time(beta = par[1], gamma = par[2], step = 1)
-  cont <- sir(beta = .004, gamma = .5, times = 0:10)
-  - sum(dbinom2(round(tail(dis$S, -1)), 1000, tail(cont$S, -1) / 1000)) -
-    sum(dbinom2(round(tail(dis$I, -1)), 1000, tail(cont$I, -1) / 1000)) -
-    sum(dbinom2(round(tail(dis$R, -1)), 1000, tail(cont$R, -1) / 1000))
+## 3. likelihood ######################################################################
+
+
+mLL <- function(par, beta, gamma, S0, I0, R0, times) {
+  continuous <- sir_continuous(beta, gamma, S0, I0, R0, times)
+  discrete <- sir_discrete(par[1], par[2], S0, I0, R0, times)
+  
+  size <- S0 + I0 + R0
+  mLL1 <- function(observed, expected) {
+    - sum(dbinom2(round(remove_first(observed)), size, remove_first(expected) / size))
+  }
+
+  mLL1(discrete$S, continuous$S) +
+    mLL1(discrete$I, continuous$I) +
+    mLL1(discrete$R, continuous$R)
 }
 
-mLL(c(.005, .5))
 
-par_dis <- optim(c(.004, .5), mLL)$par
-out_dis <- sir_discrete_time(beta = par_dis[1], gamma = par_dis[2])
+#######################################################################################
 
-with(out, plot(time, I, type = "l", col = 2, lwd = 3, ylim = c(0, 1000)))
-with(out_dis, lines(time, I, type = "o"))
+beta <- .004
+gamma <- .5
+S0 <- 999
+I0 <- 1
+R0 <- 0
+tmin <- 0
+tmax <- 10
+
+out_continuous <- sir_continuous(beta, gamma, S0, I0, R0, times = seq(tmin, tmax, le = 500))
+with(out_continuous, plot(time, I, type = "l", col = 2, lwd = 3, ylim = c(0, size)))
+
+step <- 1
+(parameters_discrete <- optim(c(beta, gamma), mLL, beta = beta, gamma = gamma, S0 = S0,
+                              I0 = I0, R0 = R0, times = seq(0, 10, step))$par)
+
+out_discrete <- sir_discrete(parameters_discrete[1], parameters_discrete[2],
+                             S0, I0, R0, seq(0, 10, step))
+
+with(out_discrete, lines(time, I, type = "o"))
+
+
+#######################################################################################
+
+beta <- .004
+gamma <- .5
+S0 <- 999
+I0 <- 1
+R0 <- 0
+tmin <- 0
+tmax <- 10
+
+f <- function(x) {
+  optim(c(beta, gamma), mLL, beta = beta, gamma = gamma, S0 = S0, I0 = I0, R0 = R0,
+        times = seq(0, 10, x))$par
+}
+
+step_size <- seq(.01, 2, .01)
+out <- step_size |>
+  mclapply(f, mc.cores = detectCores() - 1) |> 
+  unlist() |> 
+  matrix(ncol = 2, byrow = TRUE) |> 
+  as.data.frame() |> 
+  setNames(c("beta", "gamma")) %>%
+  cbind(step_sizes, .) |> 
+  tibble::as_tibble()
+  
+with(out, plot(step_size, beta, col = 4))
+abline(0, 1)
