@@ -54,12 +54,6 @@ sir_discrete <- function(beta, gamma, S0, I0, R0, times) {
     last_S <- last(S)
     last_I <- last(I)
     last_R <- last(R)
-#    proba_infection <- 1 - exp(- beta * last_I * step)
-#    proba_recovery <- 1 - exp(- gamma * step)
-    
-#    new_cases <- beta * last_I * last_S * step
-#    recovered <- gamma * last_I * step
-    
     new_cases <- (1 - exp(- beta * last_I * step)) * last_S
     recovered <- (1 - exp(- gamma * step)) * last_I
     S <- c(S, last_S - new_cases)
@@ -74,19 +68,18 @@ sir_discrete <- function(beta, gamma, S0, I0, R0, times) {
 
 ## 3. likelihood ######################################################################
 
+mLL1 <- function(observed, expected, size) {
+  - sum(dbinom2(observed, size, expected / size))
+}
 
-mLL <- function(par, beta, gamma, S0, I0, R0, times) {
-  continuous <- sir_continuous(beta, gamma, S0, I0, R0, times)
-  discrete <- sir_discrete(par[1], par[2], S0, I0, R0, times)
+mLL <- function(par, beta, gamma, S0, I0, R0, size, times) {
+  continuous <- sir_continuous(beta, gamma, S0, I0, R0, times)[-1, ]
+  discrete <- round(sir_discrete(par[1], par[2], S0, I0, R0, times)[-1, ])
   
-  size <- S0 + I0 + R0
-  mLL1 <- function(observed, expected) {
-    - sum(dbinom2(round(remove_first(observed)), size, remove_first(expected) / size))
-  }
-
-  mLL1(discrete$S, continuous$S) +
-    mLL1(discrete$I, continuous$I) +
-    mLL1(discrete$R, continuous$R)
+#  size <- S0 + I0 + R0
+  mLL1(discrete$S, continuous$S, size) +
+    mLL1(discrete$I, continuous$I, size) +
+    mLL1(discrete$R, continuous$R, size)
 }
 
 
@@ -100,12 +93,14 @@ R0 <- 0
 tmin <- 0
 tmax <- 10
 
+size <- S0 + I0 + R0
+
 out_continuous <- sir_continuous(beta, gamma, S0, I0, R0, times = seq(tmin, tmax, le = 500))
 with(out_continuous, plot(time, I, type = "l", col = 2, lwd = 3, ylim = c(0, size)))
 
 step <- 1
 (parameters_discrete <- optim(c(beta, gamma), mLL, beta = beta, gamma = gamma, S0 = S0,
-                              I0 = I0, R0 = R0, times = seq(0, 10, step))$par)
+                              I0 = I0, R0 = R0, size = size, times = seq(0, 10, step))$par)
 
 out_discrete <- sir_discrete(parameters_discrete[1], parameters_discrete[2],
                              S0, I0, R0, seq(0, 10, step))
@@ -123,9 +118,11 @@ R0 <- 0
 tmin <- 0
 tmax <- 10
 
+size <- S0 + I0 + R0
+
 f <- function(x) {
   optim(c(beta, gamma), mLL, beta = beta, gamma = gamma, S0 = S0, I0 = I0, R0 = R0,
-        times = seq(0, 10, x))$par
+        size = size, times = seq(0, 10, x))$par
 }
 
 step_size <- seq(.01, 2, .01)
