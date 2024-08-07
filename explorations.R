@@ -47,9 +47,7 @@ sir_discrete <- function(beta, gamma, S0, I0, R0, times) {
   S <- S0
   I <- I0
   R <- R0
-  p_inf <- NA
-  p_rec <- NA
-  
+
   for (i in remove_first(times)) {
     last_S <- last(S)
     last_I <- last(I)
@@ -136,4 +134,7 @@ out <- step_size |>
   tibble::as_tibble()
   
 with(out, plot(step_size, beta, col = 4))
-abline(0, 1)
+abline(h = beta)
+
+with(out, plot(step_size, gamma, col = 4))
+abline(h = gamma)
