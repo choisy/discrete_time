@@ -70,3 +70,16 @@ out <- step_size |>
 with(out, plot(step_size, r, col = 4, ylim = 0:1))
 abline(h = .5)
 
+#######################################################################################
+
+compare_dynamics2 <- function(N0, rc, rd, tmin, tmax, length, step) {
+  out_continuous <- continuous_exponential_growth(N0, rc, seq(tmin, tmax, le = length))
+  out_discrete <- discrete_exponential_growth(N0, rd, seq(tmin, tmax, step))
+  with(out_continuous, plot(time, N, type = "l", col = 4, lwd = 2))
+  with(out_discrete, points(time, N, col = 2, lwd = 2))
+}
+
+walk2(out$r, out$step_size, ~ compare_dynamics2(N0 = 10, rc = .5, rd = .x, tmin = 0,
+                                                tmax = 10, length = 512, step = .y))
+
+
