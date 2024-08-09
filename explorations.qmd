@@ -82,6 +82,12 @@ $$
 p = 1 - e^{-r \Delta t}
 $$
 
+New formula:
+
+$$
+p = 1 - e^{(1 - e^r)\Delta t}
+$$
+
 with $r$ the rate and $\Delta t$ the duration of the time step, both expressed in the
 same time unit. And here an example use:
 
