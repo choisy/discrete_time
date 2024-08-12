@@ -76,6 +76,31 @@ discrete_exponential_growth <- function(N0, r, times) {
 }
 ```
 
+```{r}
+discrete_exponential_growth <- function(N0, r, times) {
+  N <- N0
+  r <- exp(r * mean(diff(times)))
+  for (i in times[-1]) {
+    N <- c(N, last(N) * r)
+  }
+  tibble::tibble(time = times, N = N)
+}
+```
+
+```{r}
+discrete_exponential_growth <- function(N0, r, times) {
+  N <- N0
+  step <- mean(diff(times))
+  r <- exp(r * step)
+  p <- 1 - exp(- r * step)
+  for (i in times[-1]) {
+    N <- c(N, last(N) * (1 + p))
+  }
+  tibble::tibble(time = times, N = N)
+}
+```
+
+
 Where the probability per time step is computed as
 
 $$
@@ -92,7 +117,7 @@ with $r$ the rate and $\Delta t$ the duration of the time step, both expressed i
 same time unit. And here an example use:
 
 ```{r}
-discrete_exponential_growth(10, .5, seq(0, 10, .1)) |> 
+discrete_exponential_growth(10, .5, seq(0, 10, 1)) |> 
   with(plot2(time, N, type = "o"))
 ```
 
