@@ -1,0 +1,201 @@
+---
+title: "Continuous- and discrete-time deterministic and probabilistic models"
+format: html
+editor: visual
+---
+
+## Packages
+
+```{r}
+library(deSolve)
+library(purrr)
+library(adaptivetau)
+```
+
+## Functions
+
+```{r}
+plot2 <- function(...) plot(..., lwd = 2, col = 4)
+```
+
+```{r}
+lines2 <- function(...) lines(..., lwd = 2)
+```
+
+```{r}
+replicate2 <- function(...) replicate(..., simplify = FALSE)
+```
+
+
+## Death process
+
+### Continuous-time deterministic
+
+$$
+\frac{dN}{dt} = -rN
+$$
+
+```{r}
+continuous_deterministic <- function(N0, r, times) {
+  tibble::as_tibble(
+    as.data.frame(
+      ode(c(N = N0),
+          times,
+          function(time, variables, parameters) {
+            with(as.list(c(variables, parameters)), {
+              dN <- r * N
+              list(dN)
+            })
+          },
+          c(r = r))
+    )
+  )
+}
+```
+
+
+```{r}
+continuous_deterministic(1000, -.2, seq(0, 10, .1)) |> 
+  with(plot2(time, N, type = "l"))
+```
+
+
+### Discrete-time deterministic
+
+$$
+r_d = e^{r_c \Delta t}
+$$
+
+```{r}
+discrete_deterministic <- function(N0, r, times) {
+  r <- exp(r * mean(diff(times)))
+  N <- N0
+  for (i in times[-1]) {
+    N <- c(N, tail(N, 1) * r)
+  }
+  tibble::tibble(time = times, N = N)
+}
+```
+
+```{r}
+compare_continuous_discrete_deterministic <- function(
+    step, N0 = 1000, r = -.2, tmin = 0, tmax = 10) {
+  
+  continuous_deterministic(N0, r, seq(tmin, tmax, step)) |> 
+    with(plot2(time, N, type = "l"))
+  
+  discrete_deterministic(N0, r, seq(tmin, tmax, step)) |> 
+    with(points(time, N, lwd = 2, col = 2))
+}
+```
+
+```{r}
+compare_continuous_discrete_deterministic(.1)
+compare_continuous_discrete_deterministic(1)
+```
+
+### Discrete-time probabilistic
+
+$$
+p = 1 - e^{r\Delta t}
+$$
+
+```{r}
+discrete_probabilistic <- function(N0, r, times) {
+  Delta_t <- mean(diff(times))
+  p <- 1 - exp(r * Delta_t)
+  N <- N0
+  for (i in times[-1]) {
+    N <- c(N, tail(N, 1) * (1 - p))
+  }
+  tibble::tibble(time = times, N = N)
+}
+```
+
+```{r}
+compare_discrete_deterministic_probabilistic <- function(
+    step, N0 = 1000, r = -.2, tmin = 0, tmax = 10) {
+  
+  det <- discrete_deterministic(N0, r, seq(tmin, tmax, step))
+  prb <- discrete_probabilistic(N0, r, seq(tmin, tmax, step))
+  plot(det$N, prb$N, col = 4, lwd = 2)
+  abline(0, 1)
+}
+```
+
+```{r}
+compare_discrete_deterministic_probabilistic(.1)
+compare_discrete_deterministic_probabilistic(1)
+```
+
+### Discrete-time stochastic
+
+```{r}
+discrete_stochastic <- function(N0, r, times) {
+  Delta_t <- mean(diff(times))
+  p <- 1 - exp(r * Delta_t)
+  N <- N0
+  for (i in times[-1]) {
+    tailN <- tail(N, 1)
+    N <- c(N, tailN - rbinom(1, tailN, p))
+  }
+  tibble::tibble(time = times, N = N)
+}
+```
+
+```{r}
+out <- replicate2(1000, discrete_stochastic(1000, -.2, seq(0, 10, 1)))
+```
+
+```{r}
+plot(NA, xlab = "time", ylab = "N", xlim = c(0, 10), ylim = c(0, 1000))
+walk(out, ~ with(.x, points(time, N, type = "o", col = adjustcolor(4, .01))))
+```
+
+### Continuous-time stochastic
+
+```{r include = FALSE, eval = FALSE}
+continuous_stochastic <- function(N0, r, times) {
+  ssa.exact(c(N = N),
+            matrix(-1, nrow = 1),
+            function(x, params, t) with(params, r * x["N"]),
+            list(r = r),
+            max(times))
+}
+```
+
+```{r include = FALSE, eval = FALSE}
+continuous_stochastic(1000, .2, 0:10)
+```
+
+```{r}
+continuous_stochastic <- function(N0, r, times) {
+  N <- N0
+  tf <- max(times)
+  times <- min(times)
+  while (tail(times, 1) < tf & N > -1) {
+    times <- c(times, tail(times, 1) + rexp(1, N * abs(r)))
+    N <- N - 1
+  }
+  times <- head(times, -1)
+  tibble::tibble(time = times, N = N0 - seq_along(times))
+}
+```
+
+```{r}
+out <- continuous_stochastic(1000, -.2, 0:10)
+```
+
+```{r}
+with(out, plot(time, N, type = "s"))
+```
+
+```{r}
+out <- replicate2(1000, continuous_stochastic(1000, .2, 0:10))
+```
+
+```{r eval = FALSE}
+plot(NA, xlab = "time", ylab = "N", xlim = c(0, 10), ylim = c(0, 1000))
+walk(out, ~ with(.x, points(time, N, type = "s", col = adjustcolor(4, .01))))
+```
+

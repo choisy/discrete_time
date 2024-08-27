@@ -19,10 +19,6 @@ plot2 <- function(...) plot(..., lwd = 2, col = 4)
 ```
 
 ```{r}
-remove_first <- function(x) tail(x, -1)
-```
-
-```{r}
 last <- function(x) tail(x, 1)
 ```
 
@@ -90,6 +86,18 @@ discrete_exponential_growth <- function(N0, r, times) {
 ```{r}
 discrete_exponential_growth <- function(N0, r, times) {
   N <- N0
+  r <- exp(r * mean(diff(times)))
+  for (i in times[-1]) {
+    N <- c(N, last(N) * r)
+  }
+  tibble::tibble(time = times, N = N)
+}
+```
+
+
+```{r eval = F, include = F}
+discrete_exponential_growth <- function(N0, r, times) {
+  N <- N0
   step <- mean(diff(times))
   r <- exp(r * step)
   p <- 1 - exp(- r * step)
@@ -140,6 +148,9 @@ And it gives:
 compare_dynamics(N0 = 10, rc = .5, rd = .5, tmin = 0, tmax = 10, length = 512,
                  step = c(.01, seq(.1, .5, .1)))
 ```
+
+
+
 
 meaning that the larger the time step, the slower the dynamics of the discrete-time
 version is compared to the continuous-time version. Let's now explore how the $r$
@@ -218,5 +229,67 @@ with(out, plot(step_size, r, col = 4, ylim = 0:1,
 xs <- seq(0, .5, le = 512)
 abline(.5, slope, col = 2, lwd = 2)
 abline(h = .5)
+```
+
+## Exponential decay
+
+```{r}
+continuous_exponential_decay <- function(N0, r, times) {
+  tibble::as_tibble(
+    as.data.frame(
+      ode(c(N = N0),
+          times,
+          function(time, variables, parameters) {
+            with(as.list(c(variables, parameters)), {
+              dN <- r * N
+              list(dN)
+            })
+          },
+          c(r = r))
+    )
+  )
+}
+```
+
+```{r}
+continuous_exponential_decay(1000, .2, seq(0, 10, .1)) |> 
+  with(plot2(time, N, type = "l"))
+```
+
+```{r}
+discrete_exponential_decay <- function(N0, r, times) {
+  Delta_t <- mean(diff(times))
+  r <- exp(r * Delta_t)
+  p <- 1 - exp(- r * Delta_t)
+  print(p)
+  N <- N0
+  for (i in times[-1]) {
+    N <- c(N, last(N) * (1 + p))
+  }
+  tibble::tibble(time = times, N = N)
+}
+```
+
+```{r}
+discrete_exponential_decay(1000, .2, seq(0, 10, 1)) |> 
+  with(plot2(time, N, type = "o"))
+```
+
+```{r}
+compare_dynamics2 <- function(N0, rc, rd, tmin, tmax, length, step) {
+  out <- continuous_exponential_decay(N0, rc, seq(tmin, tmax, le = length))
+  with(out, plot2(time, N, type = "n"))
+  step |>
+    walk(~ discrete_exponential_decay(N0, rd, seq(tmin, tmax, .x)) |>
+           with(lines2(time, N, type = "o", col = 2)))
+  with(out, lines2(time, N, col = 4))
+}
+```
+
+
+```{r}
+compare_dynamics2(N0 = 1000, rc = .2, rd = .2, tmin = 0, tmax = 10, length = 512,
+                 step = c(.01, seq(.1, .5, .1)))
+
 ```
 
