@@ -32,22 +32,22 @@ replicate2 <- function(...) replicate(..., simplify = FALSE)
 ### Continuous-time deterministic
 
 $$
-\frac{dN}{dt} = -rN
+\frac{dN}{dt} = -r_cN
 $$
 
 ```{r}
-continuous_deterministic <- function(N0, r, times) {
+continuous_deterministic <- function(N0, rc, times) {
   tibble::as_tibble(
     as.data.frame(
       ode(c(N = N0),
           times,
           function(time, variables, parameters) {
             with(as.list(c(variables, parameters)), {
-              dN <- r * N
+              dN <- rc * N
               list(dN)
             })
           },
-          c(r = r))
+          c(rc = rc))
     )
   )
 }
@@ -63,15 +63,23 @@ continuous_deterministic(1000, -.2, seq(0, 10, .1)) |>
 ### Discrete-time deterministic
 
 $$
+N_{t+1} = r_d N_t
+$$
+
+with
+
+$$
 r_d = e^{r_c \Delta t}
 $$
 
+$\Delta t$ being the duration of the time step.
+
 ```{r}
-discrete_deterministic <- function(N0, r, times) {
-  r <- exp(r * mean(diff(times)))
+discrete_deterministic <- function(N0, rc, times) {
+  rd <- exp(rc * mean(diff(times)))
   N <- N0
   for (i in times[-1]) {
-    N <- c(N, tail(N, 1) * r)
+    N <- c(N, tail(N, 1) * rd)
   }
   tibble::tibble(time = times, N = N)
 }
@@ -79,12 +87,12 @@ discrete_deterministic <- function(N0, r, times) {
 
 ```{r}
 compare_continuous_discrete_deterministic <- function(
-    step, N0 = 1000, r = -.2, tmin = 0, tmax = 10) {
+    step, N0 = 1000, rc = -.2, tmin = 0, tmax = 10) {
   
-  continuous_deterministic(N0, r, seq(tmin, tmax, step)) |> 
+  continuous_deterministic(N0, rc, seq(tmin, tmax, step)) |> 
     with(plot2(time, N, type = "l"))
   
-  discrete_deterministic(N0, r, seq(tmin, tmax, step)) |> 
+  discrete_deterministic(N0, rc, seq(tmin, tmax, step)) |> 
     with(points(time, N, lwd = 2, col = 2))
 }
 ```
@@ -97,13 +105,13 @@ compare_continuous_discrete_deterministic(1)
 ### Discrete-time probabilistic
 
 $$
-p = 1 - e^{r\Delta t}
+p = 1 - e^{r_c\Delta t}
 $$
 
 ```{r}
-discrete_probabilistic <- function(N0, r, times) {
+discrete_probabilistic <- function(N0, rc, times) {
   Delta_t <- mean(diff(times))
-  p <- 1 - exp(r * Delta_t)
+  p <- 1 - exp(rc * Delta_t)
   N <- N0
   for (i in times[-1]) {
     N <- c(N, tail(N, 1) * (1 - p))
@@ -114,10 +122,10 @@ discrete_probabilistic <- function(N0, r, times) {
 
 ```{r}
 compare_discrete_deterministic_probabilistic <- function(
-    step, N0 = 1000, r = -.2, tmin = 0, tmax = 10) {
+    step, N0 = 1000, rc = -.2, tmin = 0, tmax = 10) {
   
-  det <- discrete_deterministic(N0, r, seq(tmin, tmax, step))
-  prb <- discrete_probabilistic(N0, r, seq(tmin, tmax, step))
+  det <- discrete_deterministic(N0, rc, seq(tmin, tmax, step))
+  prb <- discrete_probabilistic(N0, rc, seq(tmin, tmax, step))
   plot(det$N, prb$N, col = 4, lwd = 2)
   abline(0, 1)
 }
@@ -131,9 +139,9 @@ compare_discrete_deterministic_probabilistic(1)
 ### Discrete-time stochastic
 
 ```{r}
-discrete_stochastic <- function(N0, r, times) {
+discrete_stochastic <- function(N0, rc, times) {
   Delta_t <- mean(diff(times))
-  p <- 1 - exp(r * Delta_t)
+  p <- 1 - exp(rc * Delta_t)
   N <- N0
   for (i in times[-1]) {
     tailN <- tail(N, 1)
@@ -144,37 +152,23 @@ discrete_stochastic <- function(N0, r, times) {
 ```
 
 ```{r}
-out <- replicate2(1000, discrete_stochastic(1000, -.2, seq(0, 10, 1)))
+out_d <- replicate2(1000, discrete_stochastic(1000, -.2, seq(0, 10, 1)))
 ```
 
 ```{r}
 plot(NA, xlab = "time", ylab = "N", xlim = c(0, 10), ylim = c(0, 1000))
-walk(out, ~ with(.x, points(time, N, type = "o", col = adjustcolor(4, .01))))
+walk(out_d, ~ with(.x, points(time, N, type = "o", col = adjustcolor(4, .01))))
 ```
 
 ### Continuous-time stochastic
 
-```{r include = FALSE, eval = FALSE}
-continuous_stochastic <- function(N0, r, times) {
-  ssa.exact(c(N = N),
-            matrix(-1, nrow = 1),
-            function(x, params, t) with(params, r * x["N"]),
-            list(r = r),
-            max(times))
-}
-```
-
-```{r include = FALSE, eval = FALSE}
-continuous_stochastic(1000, .2, 0:10)
-```
-
 ```{r}
-continuous_stochastic <- function(N0, r, times) {
+continuous_stochastic <- function(N0, rc, times) {
   N <- N0
   tf <- max(times)
   times <- min(times)
   while (tail(times, 1) < tf & N > -1) {
-    times <- c(times, tail(times, 1) + rexp(1, N * abs(r)))
+    times <- c(times, tail(times, 1) + rexp(1, N * abs(rc)))
     N <- N - 1
   }
   times <- head(times, -1)
@@ -183,19 +177,59 @@ continuous_stochastic <- function(N0, r, times) {
 ```
 
 ```{r}
-out <- continuous_stochastic(1000, -.2, 0:10)
+out_c <- continuous_stochastic(1000, -.2, 0:10)
 ```
 
 ```{r}
-with(out, plot(time, N, type = "s"))
+with(out_c, plot(time, N, type = "s"))
 ```
 
 ```{r}
-out <- replicate2(1000, continuous_stochastic(1000, .2, 0:10))
+out_c <- replicate2(1000, continuous_stochastic(1000, .2, 0:10))
 ```
 
-```{r eval = FALSE}
+```{r}
 plot(NA, xlab = "time", ylab = "N", xlim = c(0, 10), ylim = c(0, 1000))
-walk(out, ~ with(.x, points(time, N, type = "s", col = adjustcolor(4, .01))))
+walk(out_c, ~ with(.x, points(time, N, type = "s")))
+walk(out_d, ~ with(.x, points(time, N, col = 4)))
 ```
+
+## Birth process
+
+### Continuous-time deterministic
+
+```{r}
+continuous_deterministic(1000, .2, seq(0, 10, .1)) |> 
+  with(plot2(time, N, type = "l"))
+```
+### Discrete-time deterministic
+
+```{r}
+compare_continuous_discrete_deterministic(.1, rc = .2)
+```
+
+```{r}
+compare_continuous_discrete_deterministic(1, rc = .2)
+```
+
+### Discrete-time probabilistic
+
+
+
+```{r}
+compare_discrete_deterministic_probabilistic(.1, rc = .2)
+```
+
+```{r}
+compare_discrete_deterministic_probabilistic(1, rc = .2)
+```
+
+### Discrete-time stochastic
+
+```{r}
+out_d <- replicate2(1000, discrete_stochastic(1000, -.2, seq(0, 10, 1)))
+plot(NA, xlab = "time", ylab = "N", xlim = c(0, 10), ylim = c(0, 1000))
+walk(out_d, ~ with(.x, points(time, N, type = "o", col = adjustcolor(4, .01))))
+```
+
 
