@@ -32,8 +32,10 @@ replicate2 <- function(...) replicate(..., simplify = FALSE)
 ### Continuous-time deterministic
 
 $$
-\frac{dN}{dt} = -r_cN
+\frac{dN}{dt} = r_cN
 $$
+
+with $r_c \leq 0$.
 
 ```{r}
 continuous_deterministic <- function(N0, rc, times) {
@@ -72,7 +74,8 @@ $$
 r_d = e^{r_c \Delta t}
 $$
 
-$\Delta t$ being the duration of the time step.
+$\Delta t$ being the duration of the time step. And we still have $r_c \leq 0$ (death
+process).
 
 ```{r}
 discrete_deterministic <- function(N0, rc, times) {
@@ -100,21 +103,23 @@ compare_continuous_discrete_deterministic <- function(
 ```{r}
 compare_continuous_discrete_deterministic(.1)
 compare_continuous_discrete_deterministic(1)
+compare_continuous_discrete_deterministic(1, rc = -1)
 ```
 
 ### Discrete-time probabilistic
 
 $$
-p = 1 - e^{r_c\Delta t}
+p = 1 - e^{-|r_c|\Delta t}
 $$
 
 ```{r}
 discrete_probabilistic <- function(N0, rc, times) {
   Delta_t <- mean(diff(times))
-  p <- 1 - exp(rc * Delta_t)
+  p <- 1 - exp(-abs(rc) * Delta_t)
+  q <- 1 + sign(rc) * p
   N <- N0
   for (i in times[-1]) {
-    N <- c(N, tail(N, 1) * (1 - p))
+    N <- c(N, tail(N, 1) * q)
   }
   tibble::tibble(time = times, N = N)
 }
@@ -134,6 +139,7 @@ compare_discrete_deterministic_probabilistic <- function(
 ```{r}
 compare_discrete_deterministic_probabilistic(.1)
 compare_discrete_deterministic_probabilistic(1)
+compare_discrete_deterministic_probabilistic(1, rc = -1)
 ```
 
 ### Discrete-time stochastic
@@ -141,11 +147,18 @@ compare_discrete_deterministic_probabilistic(1)
 ```{r}
 discrete_stochastic <- function(N0, rc, times) {
   Delta_t <- mean(diff(times))
-  p <- 1 - exp(rc * Delta_t)
+  p <- 1 - exp(-abs(rc) * Delta_t)
   N <- N0
-  for (i in times[-1]) {
-    tailN <- tail(N, 1)
-    N <- c(N, tailN - rbinom(1, tailN, p))
+  if (rc < 0) {
+    for (i in times[-1]) {
+      tailN <- tail(N, 1)
+      N <- c(N, tailN - rbinom(1, tailN, p))
+    }
+  } else {
+    for (i in times[-1]) {
+      tailN <- tail(N, 1)
+      N <- c(N, tailN + rbinom(1, tailN, p))
+    }
   }
   tibble::tibble(time = times, N = N)
 }
@@ -164,12 +177,20 @@ walk(out_d, ~ with(.x, points(time, N, type = "o", col = adjustcolor(4, .01))))
 
 ```{r}
 continuous_stochastic <- function(N0, rc, times) {
+  lambda <- abs(rc)
   N <- N0
   tf <- max(times)
   times <- min(times)
-  while (tail(times, 1) < tf & N > -1) {
-    times <- c(times, tail(times, 1) + rexp(1, N * abs(rc)))
-    N <- N - 1
+  if (rc < 0) {
+    while (tail(times, 1) < tf & N > -1) {
+      times <- c(times, tail(times, 1) + rexp(1, N * lambda))
+      N <- N - 1
+    }
+  } else {
+    while (tail(times, 1) < tf & N > -1) {
+      times <- c(times, tail(times, 1) + rexp(1, N * lambda))
+      N <- N + 1
+    }
   }
   times <- head(times, -1)
   tibble::tibble(time = times, N = N0 - seq_along(times))
@@ -185,7 +206,7 @@ with(out_c, plot(time, N, type = "s"))
 ```
 
 ```{r}
-out_c <- replicate2(1000, continuous_stochastic(1000, .2, 0:10))
+out_c <- replicate2(1000, continuous_stochastic(1000, -.2, 0:10))
 ```
 
 ```{r}
@@ -214,8 +235,6 @@ compare_continuous_discrete_deterministic(1, rc = .2)
 
 ### Discrete-time probabilistic
 
-
-
 ```{r}
 compare_discrete_deterministic_probabilistic(.1, rc = .2)
 ```
@@ -224,10 +243,43 @@ compare_discrete_deterministic_probabilistic(.1, rc = .2)
 compare_discrete_deterministic_probabilistic(1, rc = .2)
 ```
 
-### Discrete-time stochastic
+Here we observe that the fit is not perfect and get worse with large population.
 
 ```{r}
-out_d <- replicate2(1000, discrete_stochastic(1000, -.2, seq(0, 10, 1)))
+discrete_probabilistic2 <- function(N0, rc, times) {
+  Delta_t <- mean(diff(times))
+  rd <- exp(rc * Delta_t)
+  p <- 1 - exp(-rd * Delta_t)
+  q <- 1 + sign(rd - 1) * p
+  N <- N0
+  for (i in times[-1]) {
+    N <- c(N, tail(N, 1) * q)
+  }
+  tibble::tibble(time = times, N = N)
+}
+```
+
+```{r}
+compare_discrete_deterministic_probabilistic2 <- function(
+    step, N0 = 1000, rc = -.2, tmin = 0, tmax = 10) {
+  
+  det <- discrete_deterministic(N0, rc, seq(tmin, tmax, step))
+  prb <- discrete_probabilistic2(N0, rc, seq(tmin, tmax, step))
+  plot(det$N, prb$N, col = 4, lwd = 2)
+  abline(0, 1)
+}
+```
+
+```{r}
+compare_discrete_deterministic_probabilistic2(.1, rc = .2)
+compare_discrete_deterministic_probabilistic2(1, rc = .2)
+```
+
+
+### Discrete-time stochastic
+
+```{r eval = F}
+out_d <- replicate2(1000, discrete_stochastic(1000, .2, seq(0, 10, 1)))
 plot(NA, xlab = "time", ylab = "N", xlim = c(0, 10), ylim = c(0, 1000))
 walk(out_d, ~ with(.x, points(time, N, type = "o", col = adjustcolor(4, .01))))
 ```

@@ -153,8 +153,9 @@ window.Quarto = {
 <section id="continuous-time-deterministic" class="level3">
 <h3 class="anchored" data-anchor-id="continuous-time-deterministic">Continuous-time deterministic</h3>
 <p><span class="math display">\[
-\frac{dN}{dt} = -r_cN
+\frac{dN}{dt} = r_cN
 \]</span></p>
+<p>with <span class="math inline">\(r_c \leq 0\)</span>.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>continuous_deterministic <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  tibble<span class="sc">::</span><span class="fu">as_tibble</span>(</span>
@@ -193,7 +194,7 @@ N_{t+1} = r_d N_t
 <p><span class="math display">\[
 r_d = e^{r_c \Delta t}
 \]</span></p>
-<p><span class="math inline">\(\Delta t\)</span> being the duration of the time step.</p>
+<p><span class="math inline">\(\Delta t\)</span> being the duration of the time step. And we still have <span class="math inline">\(r_c \leq 0\)</span> (death process).</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>discrete_deterministic <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  rd <span class="ot">&lt;-</span> <span class="fu">exp</span>(rc <span class="sc">*</span> <span class="fu">mean</span>(<span class="fu">diff</span>(times)))</span>
@@ -232,36 +233,45 @@ r_d = e^{r_c \Delta t}
 </figure>
 </div>
 </div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_continuous_discrete_deterministic</span>(<span class="dv">1</span>, <span class="at">rc =</span> <span class="sc">-</span><span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="explorations-2_files/figure-html/unnamed-chunk-9-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
 </div>
 </section>
 <section id="discrete-time-probabilistic" class="level3">
 <h3 class="anchored" data-anchor-id="discrete-time-probabilistic">Discrete-time probabilistic</h3>
 <p><span class="math display">\[
-p = 1 - e^{r_c\Delta t}
+p = 1 - e^{-|r_c|\Delta t}
 \]</span></p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>discrete_probabilistic <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  Delta_t <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">diff</span>(times))</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">exp</span>(rc <span class="sc">*</span> Delta_t)</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> N0</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> times[<span class="sc">-</span><span class="dv">1</span>]) {</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    N <span class="ot">&lt;-</span> <span class="fu">c</span>(N, <span class="fu">tail</span>(N, <span class="dv">1</span>) <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> p))</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">time =</span> times, <span class="at">N =</span> N)</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>discrete_probabilistic <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  Delta_t <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">diff</span>(times))</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="fu">abs</span>(rc) <span class="sc">*</span> Delta_t)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  q <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="fu">sign</span>(rc) <span class="sc">*</span> p</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> N0</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> times[<span class="sc">-</span><span class="dv">1</span>]) {</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    N <span class="ot">&lt;-</span> <span class="fu">c</span>(N, <span class="fu">tail</span>(N, <span class="dv">1</span>) <span class="sc">*</span> q)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">time =</span> times, <span class="at">N =</span> N)</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>compare_discrete_deterministic_probabilistic <span class="ot">&lt;-</span> <span class="cf">function</span>(</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    step, <span class="at">N0 =</span> <span class="dv">1000</span>, <span class="at">rc =</span> <span class="sc">-</span>.<span class="dv">2</span>, <span class="at">tmin =</span> <span class="dv">0</span>, <span class="at">tmax =</span> <span class="dv">10</span>) {</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  det <span class="ot">&lt;-</span> <span class="fu">discrete_deterministic</span>(N0, rc, <span class="fu">seq</span>(tmin, tmax, step))</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  prb <span class="ot">&lt;-</span> <span class="fu">discrete_probabilistic</span>(N0, rc, <span class="fu">seq</span>(tmin, tmax, step))</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(det<span class="sc">$</span>N, prb<span class="sc">$</span>N, <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="dv">0</span>, <span class="dv">1</span>)</span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>compare_discrete_deterministic_probabilistic <span class="ot">&lt;-</span> <span class="cf">function</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    step, <span class="at">N0 =</span> <span class="dv">1000</span>, <span class="at">rc =</span> <span class="sc">-</span>.<span class="dv">2</span>, <span class="at">tmin =</span> <span class="dv">0</span>, <span class="at">tmax =</span> <span class="dv">10</span>) {</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  det <span class="ot">&lt;-</span> <span class="fu">discrete_deterministic</span>(N0, rc, <span class="fu">seq</span>(tmin, tmax, step))</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  prb <span class="ot">&lt;-</span> <span class="fu">discrete_probabilistic</span>(N0, rc, <span class="fu">seq</span>(tmin, tmax, step))</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(det<span class="sc">$</span>N, prb<span class="sc">$</span>N, <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(.<span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(.<span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -269,11 +279,19 @@ p = 1 - e^{r_c\Delta t}
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(<span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(<span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
 <p><img src="explorations-2_files/figure-html/unnamed-chunk-12-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(<span class="dv">1</span>, <span class="at">rc =</span> <span class="sc">-</span><span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="explorations-2_files/figure-html/unnamed-chunk-12-3.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -282,23 +300,30 @@ p = 1 - e^{r_c\Delta t}
 <section id="discrete-time-stochastic" class="level3">
 <h3 class="anchored" data-anchor-id="discrete-time-stochastic">Discrete-time stochastic</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>discrete_stochastic <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  Delta_t <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">diff</span>(times))</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">exp</span>(rc <span class="sc">*</span> Delta_t)</span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> N0</span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> times[<span class="sc">-</span><span class="dv">1</span>]) {</span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    tailN <span class="ot">&lt;-</span> <span class="fu">tail</span>(N, <span class="dv">1</span>)</span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    N <span class="ot">&lt;-</span> <span class="fu">c</span>(N, tailN <span class="sc">-</span> <span class="fu">rbinom</span>(<span class="dv">1</span>, tailN, p))</span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">time =</span> times, <span class="at">N =</span> N)</span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>discrete_stochastic <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  Delta_t <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">diff</span>(times))</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="fu">abs</span>(rc) <span class="sc">*</span> Delta_t)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> N0</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (rc <span class="sc">&lt;</span> <span class="dv">0</span>) {</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (i <span class="cf">in</span> times[<span class="sc">-</span><span class="dv">1</span>]) {</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>      tailN <span class="ot">&lt;-</span> <span class="fu">tail</span>(N, <span class="dv">1</span>)</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>      N <span class="ot">&lt;-</span> <span class="fu">c</span>(N, tailN <span class="sc">-</span> <span class="fu">rbinom</span>(<span class="dv">1</span>, tailN, p))</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (i <span class="cf">in</span> times[<span class="sc">-</span><span class="dv">1</span>]) {</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>      tailN <span class="ot">&lt;-</span> <span class="fu">tail</span>(N, <span class="dv">1</span>)</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>      N <span class="ot">&lt;-</span> <span class="fu">c</span>(N, tailN <span class="sc">+</span> <span class="fu">rbinom</span>(<span class="dv">1</span>, tailN, p))</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>  tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">time =</span> times, <span class="at">N =</span> N)</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>out_d <span class="ot">&lt;-</span> <span class="fu">replicate2</span>(<span class="dv">1000</span>, <span class="fu">discrete_stochastic</span>(<span class="dv">1000</span>, <span class="sc">-</span>.<span class="dv">2</span>, <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">10</span>, <span class="dv">1</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>out_d <span class="ot">&lt;-</span> <span class="fu">replicate2</span>(<span class="dv">1000</span>, <span class="fu">discrete_stochastic</span>(<span class="dv">1000</span>, <span class="sc">-</span>.<span class="dv">2</span>, <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">10</span>, <span class="dv">1</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="cn">NA</span>, <span class="at">xlab =</span> <span class="st">"time"</span>, <span class="at">ylab =</span> <span class="st">"N"</span>, <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>))</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">walk</span>(out_d, <span class="sc">~</span> <span class="fu">with</span>(.x, <span class="fu">points</span>(time, N, <span class="at">type =</span> <span class="st">"o"</span>, <span class="at">col =</span> <span class="fu">adjustcolor</span>(<span class="dv">4</span>, .<span class="dv">01</span>))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="cn">NA</span>, <span class="at">xlab =</span> <span class="st">"time"</span>, <span class="at">ylab =</span> <span class="st">"N"</span>, <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>))</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">walk</span>(out_d, <span class="sc">~</span> <span class="fu">with</span>(.x, <span class="fu">points</span>(time, N, <span class="at">type =</span> <span class="st">"o"</span>, <span class="at">col =</span> <span class="fu">adjustcolor</span>(<span class="dv">4</span>, .<span class="dv">01</span>))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -311,23 +336,31 @@ p = 1 - e^{r_c\Delta t}
 <section id="continuous-time-stochastic" class="level3">
 <h3 class="anchored" data-anchor-id="continuous-time-stochastic">Continuous-time stochastic</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>continuous_stochastic <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> N0</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  tf <span class="ot">&lt;-</span> <span class="fu">max</span>(times)</span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  times <span class="ot">&lt;-</span> <span class="fu">min</span>(times)</span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> (<span class="fu">tail</span>(times, <span class="dv">1</span>) <span class="sc">&lt;</span> tf <span class="sc">&amp;</span> N <span class="sc">&gt;</span> <span class="sc">-</span><span class="dv">1</span>) {</span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>    times <span class="ot">&lt;-</span> <span class="fu">c</span>(times, <span class="fu">tail</span>(times, <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">rexp</span>(<span class="dv">1</span>, N <span class="sc">*</span> <span class="fu">abs</span>(rc)))</span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>    N <span class="ot">&lt;-</span> N <span class="sc">-</span> <span class="dv">1</span></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>  times <span class="ot">&lt;-</span> <span class="fu">head</span>(times, <span class="sc">-</span><span class="dv">1</span>)</span>
-<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>  tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">time =</span> times, <span class="at">N =</span> N0 <span class="sc">-</span> <span class="fu">seq_along</span>(times))</span>
-<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>continuous_stochastic <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  lambda <span class="ot">&lt;-</span> <span class="fu">abs</span>(rc)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> N0</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  tf <span class="ot">&lt;-</span> <span class="fu">max</span>(times)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  times <span class="ot">&lt;-</span> <span class="fu">min</span>(times)</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (rc <span class="sc">&lt;</span> <span class="dv">0</span>) {</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (<span class="fu">tail</span>(times, <span class="dv">1</span>) <span class="sc">&lt;</span> tf <span class="sc">&amp;</span> N <span class="sc">&gt;</span> <span class="sc">-</span><span class="dv">1</span>) {</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>      times <span class="ot">&lt;-</span> <span class="fu">c</span>(times, <span class="fu">tail</span>(times, <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">rexp</span>(<span class="dv">1</span>, N <span class="sc">*</span> lambda))</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>      N <span class="ot">&lt;-</span> N <span class="sc">-</span> <span class="dv">1</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> {</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> (<span class="fu">tail</span>(times, <span class="dv">1</span>) <span class="sc">&lt;</span> tf <span class="sc">&amp;</span> N <span class="sc">&gt;</span> <span class="sc">-</span><span class="dv">1</span>) {</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>      times <span class="ot">&lt;-</span> <span class="fu">c</span>(times, <span class="fu">tail</span>(times, <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">rexp</span>(<span class="dv">1</span>, N <span class="sc">*</span> lambda))</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>      N <span class="ot">&lt;-</span> N <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>  times <span class="ot">&lt;-</span> <span class="fu">head</span>(times, <span class="sc">-</span><span class="dv">1</span>)</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>  tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">time =</span> times, <span class="at">N =</span> N0 <span class="sc">-</span> <span class="fu">seq_along</span>(times))</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>out_c <span class="ot">&lt;-</span> <span class="fu">continuous_stochastic</span>(<span class="dv">1000</span>, <span class="sc">-</span>.<span class="dv">2</span>, <span class="dv">0</span><span class="sc">:</span><span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>out_c <span class="ot">&lt;-</span> <span class="fu">continuous_stochastic</span>(<span class="dv">1000</span>, <span class="sc">-</span>.<span class="dv">2</span>, <span class="dv">0</span><span class="sc">:</span><span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">with</span>(out_c, <span class="fu">plot</span>(time, N, <span class="at">type =</span> <span class="st">"s"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">with</span>(out_c, <span class="fu">plot</span>(time, N, <span class="at">type =</span> <span class="st">"s"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -337,12 +370,12 @@ p = 1 - e^{r_c\Delta t}
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>out_c <span class="ot">&lt;-</span> <span class="fu">replicate2</span>(<span class="dv">1000</span>, <span class="fu">continuous_stochastic</span>(<span class="dv">1000</span>, .<span class="dv">2</span>, <span class="dv">0</span><span class="sc">:</span><span class="dv">10</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>out_c <span class="ot">&lt;-</span> <span class="fu">replicate2</span>(<span class="dv">1000</span>, <span class="fu">continuous_stochastic</span>(<span class="dv">1000</span>, <span class="sc">-</span>.<span class="dv">2</span>, <span class="dv">0</span><span class="sc">:</span><span class="dv">10</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="cn">NA</span>, <span class="at">xlab =</span> <span class="st">"time"</span>, <span class="at">ylab =</span> <span class="st">"N"</span>, <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>))</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">walk</span>(out_c, <span class="sc">~</span> <span class="fu">with</span>(.x, <span class="fu">points</span>(time, N, <span class="at">type =</span> <span class="st">"s"</span>)))</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="fu">walk</span>(out_d, <span class="sc">~</span> <span class="fu">with</span>(.x, <span class="fu">points</span>(time, N, <span class="at">col =</span> <span class="dv">4</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="cn">NA</span>, <span class="at">xlab =</span> <span class="st">"time"</span>, <span class="at">ylab =</span> <span class="st">"N"</span>, <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>))</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="fu">walk</span>(out_c, <span class="sc">~</span> <span class="fu">with</span>(.x, <span class="fu">points</span>(time, N, <span class="at">type =</span> <span class="st">"s"</span>)))</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="fu">walk</span>(out_d, <span class="sc">~</span> <span class="fu">with</span>(.x, <span class="fu">points</span>(time, N, <span class="at">col =</span> <span class="dv">4</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -358,8 +391,8 @@ p = 1 - e^{r_c\Delta t}
 <section id="continuous-time-deterministic-1" class="level3">
 <h3 class="anchored" data-anchor-id="continuous-time-deterministic-1">Continuous-time deterministic</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">continuous_deterministic</span>(<span class="dv">1000</span>, .<span class="dv">2</span>, <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">10</span>, .<span class="dv">1</span>)) <span class="sc">|&gt;</span> </span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">with</span>(<span class="fu">plot2</span>(time, N, <span class="at">type =</span> <span class="st">"l"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">continuous_deterministic</span>(<span class="dv">1000</span>, .<span class="dv">2</span>, <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">10</span>, .<span class="dv">1</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">with</span>(<span class="fu">plot2</span>(time, N, <span class="at">type =</span> <span class="st">"l"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -372,7 +405,7 @@ p = 1 - e^{r_c\Delta t}
 <section id="discrete-time-deterministic-1" class="level3">
 <h3 class="anchored" data-anchor-id="discrete-time-deterministic-1">Discrete-time deterministic</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_continuous_discrete_deterministic</span>(.<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_continuous_discrete_deterministic</span>(.<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -382,7 +415,7 @@ p = 1 - e^{r_c\Delta t}
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_continuous_discrete_deterministic</span>(<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_continuous_discrete_deterministic</span>(<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -395,7 +428,7 @@ p = 1 - e^{r_c\Delta t}
 <section id="discrete-time-probabilistic-1" class="level3">
 <h3 class="anchored" data-anchor-id="discrete-time-probabilistic-1">Discrete-time probabilistic</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(.<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(.<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -405,7 +438,7 @@ p = 1 - e^{r_c\Delta t}
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic</span>(<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -414,20 +447,55 @@ p = 1 - e^{r_c\Delta t}
 </div>
 </div>
 </div>
+<p>Here we observe that the fit is not perfect and get worse with large population.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>discrete_probabilistic2 <span class="ot">&lt;-</span> <span class="cf">function</span>(N0, rc, times) {</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  Delta_t <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">diff</span>(times))</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  rd <span class="ot">&lt;-</span> <span class="fu">exp</span>(rc <span class="sc">*</span> Delta_t)</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> <span class="fu">exp</span>(<span class="sc">-</span>rd <span class="sc">*</span> Delta_t)</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>  q <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">+</span> <span class="fu">sign</span>(rd <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> p</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> N0</span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> times[<span class="sc">-</span><span class="dv">1</span>]) {</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>    N <span class="ot">&lt;-</span> <span class="fu">c</span>(N, <span class="fu">tail</span>(N, <span class="dv">1</span>) <span class="sc">*</span> q)</span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>  tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">time =</span> times, <span class="at">N =</span> N)</span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>compare_discrete_deterministic_probabilistic2 <span class="ot">&lt;-</span> <span class="cf">function</span>(</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>    step, <span class="at">N0 =</span> <span class="dv">1000</span>, <span class="at">rc =</span> <span class="sc">-</span>.<span class="dv">2</span>, <span class="at">tmin =</span> <span class="dv">0</span>, <span class="at">tmax =</span> <span class="dv">10</span>) {</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  det <span class="ot">&lt;-</span> <span class="fu">discrete_deterministic</span>(N0, rc, <span class="fu">seq</span>(tmin, tmax, step))</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>  prb <span class="ot">&lt;-</span> <span class="fu">discrete_probabilistic2</span>(N0, rc, <span class="fu">seq</span>(tmin, tmax, step))</span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(det<span class="sc">$</span>N, prb<span class="sc">$</span>N, <span class="at">col =</span> <span class="dv">4</span>, <span class="at">lwd =</span> <span class="dv">2</span>)</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">abline</span>(<span class="dv">0</span>, <span class="dv">1</span>)</span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic2</span>(.<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="explorations-2_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">compare_discrete_deterministic_probabilistic2</span>(<span class="dv">1</span>, <span class="at">rc =</span> .<span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="explorations-2_files/figure-html/unnamed-chunk-28-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
 </section>
 <section id="discrete-time-stochastic-1" class="level3">
 <h3 class="anchored" data-anchor-id="discrete-time-stochastic-1">Discrete-time stochastic</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>out_d <span class="ot">&lt;-</span> <span class="fu">replicate2</span>(<span class="dv">1000</span>, <span class="fu">discrete_stochastic</span>(<span class="dv">1000</span>, <span class="sc">-</span>.<span class="dv">2</span>, <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">10</span>, <span class="dv">1</span>)))</span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="cn">NA</span>, <span class="at">xlab =</span> <span class="st">"time"</span>, <span class="at">ylab =</span> <span class="st">"N"</span>, <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>))</span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">walk</span>(out_d, <span class="sc">~</span> <span class="fu">with</span>(.x, <span class="fu">points</span>(time, N, <span class="at">type =</span> <span class="st">"o"</span>, <span class="at">col =</span> <span class="fu">adjustcolor</span>(<span class="dv">4</span>, .<span class="dv">01</span>))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="explorations-2_files/figure-html/unnamed-chunk-26-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>out_d <span class="ot">&lt;-</span> <span class="fu">replicate2</span>(<span class="dv">1000</span>, <span class="fu">discrete_stochastic</span>(<span class="dv">1000</span>, .<span class="dv">2</span>, <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">10</span>, <span class="dv">1</span>)))</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="cn">NA</span>, <span class="at">xlab =</span> <span class="st">"time"</span>, <span class="at">ylab =</span> <span class="st">"N"</span>, <span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>))</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="fu">walk</span>(out_d, <span class="sc">~</span> <span class="fu">with</span>(.x, <span class="fu">points</span>(time, N, <span class="at">type =</span> <span class="st">"o"</span>, <span class="at">col =</span> <span class="fu">adjustcolor</span>(<span class="dv">4</span>, .<span class="dv">01</span>))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
