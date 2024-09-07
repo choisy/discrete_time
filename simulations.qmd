@@ -2,7 +2,24 @@
 title: "Simulations"
 format: html
 editor: visual
+editor_options: 
+  chunk_output_type: console
 ---
+
+## Packages
+
+```{r}
+required <- c("adaptivetau",
+              "deSolve",
+              "magrittr",
+              "parallel",
+              "purrr",
+              "tibble")
+
+to_install <- required[! required %in% row.names(installed.packages())]
+if (length(to_install)) install.packages(to_install)
+```
+
 
 ## Functions
 
@@ -28,15 +45,21 @@ mplot1 <- function(x, col = 4, ...) {
 ```
 
 ```{r}
+mclapply2 <- function(...) {
+  parallel::mclapply(..., mc.cores = parallel::detectCores() - 1)
+}
+```
+
+```{r}
 I_at_t <- function(x, times) {
   purrr::map_dbl(times, \(t) x$I[tail(which(x$time < t), 1)])
 }
 ```
 
 ```{r}
-make_quantiles <- function(x, times, probs, ...) {
+make_quantiles <- function(x, times, probs, f = purrr::map, ...) {
   x |>
-    purrr::map(I_at_t, times) |> 
+    f(I_at_t, times) |> 
     as.data.frame() |> 
     apply(1, quantile, probs, ...) |> 
     t() |> 
@@ -51,8 +74,8 @@ polygon2 <- function(x, y1, y2, ...) {
 ```
 
 ```{r}
-mplot2 <- function(x, probs, times, col1, col2, ...) {
-  a <- make_quantiles(x, times, probs)
+mplot2 <- function(x, probs, times, col1, col2, f = purrr::map, ...) {
+  a <- make_quantiles(x, times, probs, f)
   n <- length(probs)
   b <- n / 2
   m <- floor(b)
@@ -66,7 +89,6 @@ mplot2 <- function(x, probs, times, col1, col2, ...) {
   if (b %% 2) lines(times, a[, m + 1], col = col2, ...)
 }
 ```
-
 
 ## Continuous time deterministic
 
@@ -151,10 +173,11 @@ cont_sto_sim30 <- cont_sto2(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2, times = 
 
 ```{r}
 cont_sto3 <- function(N, I, R, R0, gamma, times, n) {
-  parallel::mclapply(1:n, function(x) cont_sto1(N, I, R, R0, gamma, times),
-                     mc.cores = parallel::detectCores() - 1)
+  mclapply2(1:n, function(x) cont_sto1(N, I, R, R0, gamma, times))
 }
 ```
+
+
 
 ```{r}
 cont_sto_sim10000 <- cont_sto3(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2, times = 1:365,
@@ -168,6 +191,47 @@ mplot1(cont_sto_sim30)
 ```
 
 ```{r}
-mplot2(cont_sto_sim10000, seq(.1, 1, .1), 1:365, adjustcolor("black", .1), 2, lwd = 2)
+mplot2(cont_sto_sim10000, seq(.1, 1, .1), 1:365, adjustcolor("black", .1), 2, lwd = 2,
+       f = mclapply2)
+```
+
+Looking at the peak values
+
+```{r}
+cont_sto_sim10000 |>
+  purrr::map_dbl(~ max(.x$I)) |> 
+  plot(ylab = "peak value", col = 4)
+```
+
+Removing the extinctions:
+
+```{r}
+cont_sto_sim10000ne <- cont_sto_sim10000[purrr::map_dbl(cont_sto_sim10000,
+                                                        ~ max(.x$I)) > 50]
+```
+
+```{r}
+length(cont_sto_sim10000ne)
+```
+
+
+Plotting without the extinctions:
+
+```{r}
+mplot2(cont_sto_sim10000ne, seq(.1, 1, .1), 1:365, adjustcolor("black", .1), 2, lwd = 2,
+       f = mclapply2)
+```
+
+Verifying that we don't have any identical simulations among those that do not go
+immediately to extinction:
+
+```{r}
+cont_sto_sim10000ne |>
+  mclapply2(I_at_t, 1:365) |> 
+  as.data.frame() |> 
+  t() |> 
+  as.data.frame() |> 
+  duplicated() |> 
+  sum()
 ```
 
