@@ -6,12 +6,37 @@ editor_options:
   chunk_output_type: console
 ---
 
+```{r general_options, include = FALSE, eval = FALSE}
+knitr::knit_hooks$set(
+  margin = function(before, options, envir) {
+    if (before) par(mgp = c(1.5, .5, 0), bty = "n", plt = c(.105, .97, .13, .97))
+    else NULL
+  },
+  prompt = function(before, options, envir) {
+    options(prompt = if (options$engine %in% c("sh", "bash")) "$ " else "> ")
+  })
+
+knitr::opts_chunk$set(margin = TRUE, prompt = TRUE, comment = "",
+                      collapse = TRUE, cache = FALSE, autodep = TRUE,
+                      dev.args = list(pointsize = 11), fig.height = 3.5,
+                      fig.width = 4.24725, fig.retina = 2, fig.align = "center")
+
+options(width = 137)
+```
+
+```{r include = FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+path <- "~/Library/CloudStorage/OneDrive-OxfordUniversityClinicalResearchUnit/GitHub/choisy/discrete_time/"
+```
+
+
 ## Packages
 
 ```{r}
 required <- c("adaptivetau",
               "deSolve",
               "magrittr",
+              "MASS",
               "parallel",
               "purrr",
               "tibble")
@@ -20,12 +45,34 @@ to_install <- required[! required %in% row.names(installed.packages())]
 if (length(to_install)) install.packages(to_install)
 ```
 
+```{r}
+library(purrr)
+```
+
 
 ## Functions
 
 ```{r}
 plot_line <- function(..., lwd = 2, col = 4) {
   plot(..., type = "l", lwd = lwd, col = col)
+}
+```
+
+```{r}
+plot2 <- function(..., col = 4) {
+  plot(..., col = col)
+}
+```
+
+```{r}
+lines2 <- function(..., lwd = 2, col = 2) {
+  lines(..., lwd = lwd, col = col)
+}
+```
+
+```{r}
+abline2 <- function(..., lwd = 2, col = 2) {
+  abline(..., lwd = lwd, col = col)
 }
 ```
 
@@ -57,10 +104,17 @@ I_at_t <- function(x, times) {
 ```
 
 ```{r}
+combineI <- function(x, times, f = purrr::map) {
+  x |> 
+    f(I_at_t, times) |> 
+    as.data.frame()
+}
+```
+
+```{r}
 make_quantiles <- function(x, times, probs, f = purrr::map, ...) {
   x |>
-    f(I_at_t, times) |> 
-    as.data.frame() |> 
+    combineI(times, f) |> 
     apply(1, quantile, probs, ...) |> 
     t() |> 
     as.data.frame()
@@ -90,6 +144,14 @@ mplot2 <- function(x, probs, times, col1, col2, f = purrr::map, ...) {
 }
 ```
 
+```{r}
+mode_val <- function(x, ...) {
+  x <- density(x, ...)
+  x$x[which.max(x$y)]
+}
+```
+
+
 ## Continuous time deterministic
 
 The numerical solver of the ODE version of an SIR model:
@@ -109,8 +171,7 @@ cont_det <- function(N, I, R, R0, gamma, times) {
                 incidence - recovered, # dI/dt
                 recovered))})},        # dR/dt
     c(beta  = R0 * gamma / N,
-      gamma = gamma)
-  ) |> 
+      gamma = gamma)) |> 
     unclass() |>
     tibble::as_tibble()
 }
@@ -119,21 +180,26 @@ cont_det <- function(N, I, R, R0, gamma, times) {
 Let's numerically solve:
 
 ```{r}
-cont_det_sim <- cont_det(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2, times = 1:365)
+cont_det_sim <- cont_det(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2, times = 0:365)
 ```
 
 Let's visualize this the epicurve from this simulation:
 
 ```{r}
 with(cont_det_sim, plot_line(time, I))
+det_peak_value <- max(cont_det_sim$I)
+det_peak_timing <- cont_det_sim$time[which.max(cont_det_sim$I)]
+abline2(h = det_peak_value)
+abline2(v = det_peak_timing)
 ```
+
 
 ## Continuous time stochastic
 
 The simulator:
 
 ```{r}
-cont_sto1 <- function(N, I, R, R0, gamma, times) {
+cont_sto <- function(N, I, R, R0, gamma, times) {
   adaptivetau::ssa.exact(
     c(S = N - I - R,
       I = I,
@@ -152,36 +218,89 @@ cont_sto1 <- function(N, I, R, R0, gamma, times) {
 }
 ```
 
-Let's run one simulation:
+Two functions to run multiple simulations:
+
+* in series:
 
 ```{r}
-cont_sto_sim <- cont_sto1(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2, times = 1:365)
-```
-
-Let's run multiple simulations:
-
-```{r}
-cont_sto2 <- function(N, I, R, R0, gamma, times, n) {
-  replicate(n, cont_sto1(N, I, R, R0, gamma, times), simplify = FALSE)
+cont_sto_series <- function(N, I, R, R0, gamma, times, n) {
+  replicate(n, cont_sto(N, I, R, R0, gamma, times), simplify = FALSE)
 }
 ```
 
-```{r}
-cont_sto_sim30 <- cont_sto2(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2, times = 1:365,
-                            n = 30)
-```
+* in parallel:
 
 ```{r}
-cont_sto3 <- function(N, I, R, R0, gamma, times, n) {
-  mclapply2(1:n, function(x) cont_sto1(N, I, R, R0, gamma, times))
+cont_sto_parallel <- function(N, I, R, R0, gamma, times, n) {
+  mclapply2(1:n, function(x) cont_sto(N, I, R, R0, gamma, times))
 }
 ```
 
-
+A function to compare running time of the series and parallel computations:
 
 ```{r}
-cont_sto_sim10000 <- cont_sto3(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2, times = 1:365,
-                              n = 10000)
+comparison <- function(n1 = 30, n2 = 30, N = 1000, I = 1, R = 0, R0 = 2, gamma = .2,
+                       times = 0:365) {
+  dplyr::bind_rows(
+    tibble::tibble(
+      type = "series",
+      n    = n1,
+      time = map_dbl(1:n2,
+        ~ system.time(cont_sto_series(N, I, R, R0, gamma, times, n1))[[3]])),
+    tibble::tibble(
+      type = "parallel",
+      n    = n1,
+      time = map_dbl(1:n2,
+        ~ system.time(cont_sto_parallel(N, I, R, R0, gamma, times, n1))[[3]])))
+}
+```
+
+Running the computations for running time comparison:
+
+```{r}
+out30 <- map_dfr(c(1, 5, 10, 20, 40, 80, 160, 320), comparison)
+```
+
+A function that plots the simulations times:
+
+```{r}
+plot_simulation_time <- function(x) {
+  types <- unique(x$type)
+  with(x, plot(n, time, type = "n",
+               xlab = "number of repeats", ylab = "simulation time (seconds)"))
+  abline(v = pretty(x$n), col = "grey")
+  abline(h = pretty(x$time), col = "grey")
+  with(x[sample(1:nrow(x)), ],
+       points(jitter(n), time, col = as.numeric(as.factor(type)) + 1))
+  legend("topleft", legend = types, col = as.numeric(as.factor(types)) + 1, pch = 1)
+}
+```
+
+Plotting the simulation time in series and parallel as a function of the number of
+repeats:
+
+```{r}
+plot_simulation_time(out30)
+```
+
+Let's do the same with larger population sizes:
+
+```{r}
+system.time(out60 <- map_dfr(c(1, 5, 10, 20, 40, 80, 160, 320), comparison, n2 = 60))
+plot_simulation_time(out60)
+```
+
+So, the parallel version is good in most of the cases.
+
+```{r}
+cont_sto_sim <- cont_sto(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2, times = 0:365)
+```
+
+Let's run multiple simulations in series:
+
+```{r}
+cont_sto_sim30 <- cont_sto_series(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2,
+                                  times = 0:365, n = 30)
 ```
 
 Visualizing the simulations outputs:
@@ -189,6 +308,15 @@ Visualizing the simulations outputs:
 ```{r}
 mplot1(cont_sto_sim30)
 ```
+
+More simulations:
+
+```{r}
+cont_sto_sim10000 <- cont_sto_parallel(N = 1000, I = 1, R = 0, R0 = 2, gamma = .2,
+                                       times = 0:365, n = 10000)
+```
+
+Another way to look at the output:
 
 ```{r}
 mplot2(cont_sto_sim10000, seq(.1, 1, .1), 1:365, adjustcolor("black", .1), 2, lwd = 2,
@@ -200,7 +328,52 @@ Looking at the peak values
 ```{r}
 cont_sto_sim10000 |>
   purrr::map_dbl(~ max(.x$I)) |> 
-  plot(ylab = "peak value", col = 4)
+  plot2(ylab = "peak value")
+
+abline2(h = det_peak_value)
+```
+
+And a histogram version:
+
+```{r}
+tmp <- cont_sto_sim10000 |>
+  purrr::map_dbl(~ max(.x$I)) |> 
+  hist(100, plot = FALSE)
+
+plot2(tmp, main = NA, xlab = "peak value", ylab = "frequency")
+abline2(v = det_peak_value)
+```
+
+Same but with square-root transform:
+
+```{r}
+tmp2 <- tmp
+tmp2$counts <- sqrt(tmp2$counts)
+plot2(tmp2, main = NA, xlab = "peak value", ylab = "frequency",
+      ylim = c(0, max(tmp2$counts)), yaxs = "i")
+abline2(v = det_peak_value)
+```
+
+Looking at the peak timing:
+
+```{r}
+peak_timing <- map_dbl(cont_sto_sim10000, ~ .x$time[which.max(.x$I)])
+peak_value <- map_dbl(cont_sto_sim10000, ~ max(.x$I))
+plot2(peak_timing, peak_value, xlab = "peak timing", ylab = "peak value")
+abline2(h = det_peak_value)
+abline2(v = det_peak_timing)
+```
+
+And an 2D density plot:
+
+```{r}
+density2d <- MASS::kde2d(peak_timing, peak_value, n = 100)
+density2d$z <- sqrt(density2d$z)
+image(density2d, xlab = "peak timing", ylab = "peak value")
+contour(density2d, add = TRUE)
+abline2(h = det_peak_value, col = "white")
+abline2(v = det_peak_timing, col = "white")
+box(bty = "o")
 ```
 
 Removing the extinctions:
@@ -210,16 +383,17 @@ cont_sto_sim10000ne <- cont_sto_sim10000[purrr::map_dbl(cont_sto_sim10000,
                                                         ~ max(.x$I)) > 50]
 ```
 
+The number of simulations without extinction:
+
 ```{r}
 length(cont_sto_sim10000ne)
 ```
 
-
 Plotting without the extinctions:
 
 ```{r}
-mplot2(cont_sto_sim10000ne, seq(.1, 1, .1), 1:365, adjustcolor("black", .1), 2, lwd = 2,
-       f = mclapply2)
+mplot2(cont_sto_sim10000ne, seq(.1, 1, .1), 1:365, adjustcolor("black", .1), 2,
+       lwd = 2, f = mclapply2)
 ```
 
 Verifying that we don't have any identical simulations among those that do not go
@@ -227,11 +401,134 @@ immediately to extinction:
 
 ```{r}
 cont_sto_sim10000ne |>
-  mclapply2(I_at_t, 1:365) |> 
-  as.data.frame() |> 
+  combineI(1:365, mclapply2) |> 
   t() |> 
   as.data.frame() |> 
   duplicated() |> 
   sum()
 ```
+
+Comparing stochastic and deterministic:
+
+```{r}
+tmp <- combineI(cont_sto_sim10000ne, 1:365, mclapply2)
+cont_sto_sim10000ne_mean <- apply(tmp, 1, mean)
+cont_sto_sim10000ne_median <- apply(tmp, 1, median)
+cont_sto_sim10000ne_mode <- map_dbl(as.data.frame(t(tmp)), mode_val)
+```
+
+Let's look at it:
+
+```{r}
+with(cont_det_sim, plot_line(time, I))
+lines2(1:365, cont_sto_sim10000ne_mean)
+lines2(1:365, cont_sto_sim10000ne_median, col = 3)
+lines2(1:365, cont_sto_sim10000ne_mode, col = 1)
+```
+
+Let's zoom in a bit:
+
+```{r}
+with(cont_det_sim, plot_line(time, I, xlim = c(0, 100)))
+lines2(1:365, cont_sto_sim10000ne_mean)
+lines2(1:365, cont_sto_sim10000ne_median, col = 3)
+lines2(1:365, cont_sto_sim10000ne_mode, col = 1)
+```
+
+Plotting the timing of the non-extinct:
+
+```{r}
+map_dbl(cont_sto_sim10000ne, ~ .x$time[which.max(.x$I)]) |> 
+  density() |> 
+  plot2(main = NA, xlab = "timing", ylab = "density", lwd = 2)
+
+abline2(v = det_peak_timing)
+```
+
+Let's now consider larger population sizes:
+
+```{r eval = FALSE}
+cont_sto_sim10000e4 <- cont_sto_parallel(N = 10000, I = 1, R = 0, R0 = 2, gamma = .2,
+                                         times = 0:365, n = 10000)
+peak_timing_e4 <- map_dbl(cont_sto_sim10000e4, ~ .x$time[which.max(.x$I)])
+peak_value_e4 <- map_dbl(cont_sto_sim10000e4, ~ max(.x$I))
+```
+
+```{r eval = FALSE, include = FALSE}
+saveRDS(peak_timing_e4, paste0(path, "peak_timing_e4.rds"))
+saveRDS(peak_value_e4, paste0(path, "peak_value_e4.rds"))
+```
+
+```{r include = FALSE}
+peak_timing_e4 <- readRDS(paste0(path, "peak_timing_e4.rds"))
+peak_value_e4 <- readRDS(paste0(path, "peak_timing_e4.rds"))
+```
+
+The deterministic equivalent:
+
+```{r}
+cont_det_sim_e4 <- cont_det(N = 10000, I = 1, R = 0, R0 = 2, gamma = .2, times = 0:365)
+det_peak_value_e4 <- max(cont_det_sim_e4$I)
+det_peak_timing_e4 <- cont_det_sim_e4$time[which.max(cont_det_sim_e4$I)]
+```
+
+And the comparison:
+
+```{r}
+density2d_e4 <- MASS::kde2d(peak_timing_e4, peak_value_e4, n = 100)
+density2d_e4$z <- sqrt(density2d_e4$z)
+image(density2d_e4, xlab = "peak timing", ylab = "peak value")
+contour(density2d_e4, add = TRUE)
+abline2(h = det_peak_value_e4, col = "white")
+abline2(v = det_peak_timing_e4, col = "white")
+box(bty = "o")
+```
+
+Let's now try with smaller population size:
+
+```{r}
+cont_sto_sim10000e2 <- cont_sto_parallel(N = 100, I = 1, R = 0, R0 = 2, gamma = .2,
+                                       times = 0:365, n = 10000)
+peak_timing_e2 <- map_dbl(cont_sto_sim10000e2, ~ .x$time[which.max(.x$I)])
+peak_value_e2 <- map_dbl(cont_sto_sim10000e2, ~ max(.x$I))
+
+cont_det_sim_e2 <- cont_det(N = 100, I = 1, R = 0, R0 = 2, gamma = .2, times = 0:365)
+det_peak_value_e2 <- max(cont_det_sim_e2$I)
+det_peak_timing_e2 <- cont_det_sim_e2$time[which.max(cont_det_sim_e2$I)]
+
+density2d_e2 <- MASS::kde2d(peak_timing_e2, peak_value_e2, n = 100)
+density2d_e2$z <- sqrt(density2d_e2$z)
+
+image(density2d_e2, xlab = "peak timing", ylab = "peak value")
+contour(density2d_e2, add = TRUE)
+abline2(h = det_peak_value_e2, col = "white")
+abline2(v = det_peak_timing_e2, col = "white")
+box(bty = "o")
+```
+
+```{r fig.height = 2.5, fig.width = 7}
+opar <- par(mfrow = c(1, 3))
+
+image(density2d_e2, xlab = "peak timing", ylab = "peak value")
+contour(density2d_e2, add = TRUE)
+abline2(h = det_peak_value_e2, col = "white")
+abline2(v = det_peak_timing_e2, col = "white")
+box(bty = "o")
+
+image(density2d, xlab = "peak timing", ylab = "peak value")
+contour(density2d, add = TRUE)
+abline2(h = det_peak_value, col = "white")
+abline2(v = det_peak_timing, col = "white")
+box(bty = "o")
+
+image(density2d_e4, xlab = "peak timing", ylab = "peak value")
+contour(density2d_e4, add = TRUE)
+abline2(h = det_peak_value_e4, col = "white")
+abline2(v = det_peak_timing_e4, col = "white")
+box(bty = "o")
+
+par(opar)
+```
+
+
 
